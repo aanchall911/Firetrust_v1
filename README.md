@@ -2,6 +2,9 @@
 
 **Is the fire trend real, or just the sensor?**
 
+
+live App link:https://firetrust.vercel.app/
+
 FireTrust is a browser-based prototype that merges NASA's **MODIS** and **VIIRS** active-fire detections into one record and shows **how much to trust each week**. It was built for the **NASA Space Apps Challenge 2026**, challenge *Harmonization of MODIS and VIIRS Hot Spots*.
 
 It is a single web page (`index.html`). There is no server, no build step and no account. Your data is analysed inside your own browser and is never uploaded.
