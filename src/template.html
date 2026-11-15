@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FireTrust: is the fire trend real, or just the sensor?</title>
+<meta name="description" content="FireTrust harmonizes NASA MODIS and VIIRS fire detections into one record and shows how much to trust each week. Prototype for the NASA Space Apps Challenge 2026.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Nunito+Sans:wght@400;600;700;800&family=Noto+Sans+Devanagari:wght@700&family=Noto+Sans+Gurmukhi:wght@700&display=swap" rel="stylesheet">
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<noscript><p style="padding:20px">FireTrust needs JavaScript to analyse fire data in your browser.</p></noscript>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#FFC94D" d="M16 2c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5.3 2 1.2 3 2.200 3.500C13.500 8.500 14 5 16 2z"/><path fill="#FF5A36" d="M16 14c.8 2.500 4 3.800 4 7.500a4 4 0 0 1-8 0c0-2 1-3.200 2-4 .2 1 .6 1.500 1.200 1.800C14.800 17 15 15.500 16 14z"/></svg>
+        FireTrust
+      </div>
+      <span class="chip" id="modeChip">Sample data</span>
+    </div>
+    <div class="hero-grid">
+      <div>
+        <h1>Is the fire trend real, or just the sensor?</h1>
+        <p class="lead">FireTrust merges NASA's MODIS and VIIRS fire detections into one record and shows how much to trust each week.</p>
+        <div class="btns">
+          <a class="btn btn-sun" href="#insights">See what this season says</a>
+          <a class="btn btn-line" href="#data">Load my NASA data</a>
+        </div>
+      </div>
+      <div>
+        <div class="disc"><svg id="rings" viewBox="0 0 520 520" role="img" aria-label="Fire Rings: each year is one ring, oldest inside, newest outside"></svg></div>
+        <p class="ring-note" id="ringInfo">Fire Rings: each year is a ring, oldest inside, newest outside. Tap a ring to read it.</p>
+        <div class="legend"><span>fewer fires</span><span class="grad"></span><span>more fires</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="banner sample" id="banner"><div class="wrap" id="bannerText"></div></div>
+
+<main>
+<section class="block" id="insights">
+  <div class="wrap">
+    <h2>What this season says</h2>
+    <div class="yearsel"><label for="yearSel"><strong>Year in focus</strong></label><select id="yearSel"></select></div>
+    <div class="insight">
+      <ul id="insightList"></ul>
+      <div class="stats" id="stats"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="calendar">
+  <div class="wrap">
+    <h2>Trust calendar</h2>
+    <p class="sub">Each column is a 7-day block counted from 1 January. Colour shows harmonized fire detections per day. Dots show weeks where the two sensors disagree, and dashed outlines mark unusually busy weeks. Tap a day for the details.</p>
+    <div class="panel">
+      <div class="scroll"><div id="cal"></div></div>
+      <div class="cal-legend">
+        <span class="legend" style="color:inherit;margin:0"><span>fewer</span><span class="grad"></span><span>more</span></span>
+        <span><i class="dot-low"></i>low trust week</span>
+        <span><i class="dot-med"></i>medium trust</span>
+        <span><i class="dash"></i>unusually busy week</span>
+      </div>
+      <div class="dayinfo" id="dayInfo" aria-live="polite">Tap a day to see how the two sensors counted it.</div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="shift">
+  <div class="wrap two">
+    <div>
+      <h2>Season shift</h2>
+      <p class="sub">The date by which half of a season's fire detections have happened, year by year.</p>
+      <div class="panel chart">
+        <div class="yearsel" style="margin-top:0"><label for="winSel"><strong>Season</strong></label>
+          <select id="winSel"><option value="autumn">Autumn burning (Sep to Dec)</option><option value="spring">Spring burning (Mar to Jun)</option><option value="full">Whole year</option></select></div>
+        <div id="shiftChart"></div>
+        <p id="shiftText" class="hint" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <div id="calibration">
+      <h2>Calibration check</h2>
+      <p class="sub">Why harmonize? Raw VIIRS counts run higher than MODIS. After scaling with the overlap years the two lines should line up.</p>
+      <div class="panel chart">
+        <div id="calibChart"></div>
+        <div class="key"><span><i style="background:#2347C9"></i>MODIS</span><span><i style="background:#9AA6C4"></i>VIIRS raw</span><span><i style="background:#FF9A3D"></i>VIIRS scaled to MODIS</span></div>
+        <p class="hint" id="calibText" style="margin-top:10px"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="sharecard">
+  <div class="wrap">
+    <h2>Share card</h2>
+    <p class="sub">One picture of the latest week, in English, Hindi or Punjabi, ready to send on WhatsApp.</p>
+    <div class="share">
+      <canvas id="card" width="1080" height="1080" aria-label="Share card preview"></canvas>
+      <div>
+        <div class="seg" role="group" aria-label="Language">
+          <button type="button" data-lang="en" aria-pressed="true">English</button>
+          <button type="button" data-lang="hi" aria-pressed="false">हिन्दी</button>
+          <button type="button" data-lang="pa" aria-pressed="false">ਪੰਜਾਬੀ</button>
+        </div>
+        <div class="btns" style="margin-top:0">
+          <button class="btn btn-ink" id="dlCard" type="button">Download picture</button>
+          <button class="btn btn-quiet" id="shCard" type="button">Share</button>
+        </div>
+        <p class="msg" id="shareMsg" role="status"></p>
+        <p class="hint">The card uses the year in focus and its last complete week. It always shows the data source and a note that satellites only see fires when they pass over.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="data">
+  <div class="wrap">
+    <h2>Use your own NASA data</h2>
+    <p class="sub">Download fire detections for your area from NASA FIRMS (free), then drop the CSV files here. Everything is analysed inside your browser and nothing is uploaded anywhere.</p>
+    <div class="panel">
+      <div class="loader">
+        <div class="drop"><label for="fM">MODIS files (.csv)</label><input id="fM" type="file" accept=".csv,text/csv" multiple><p class="hint">One or more years, for example MODIS C6.1.</p></div>
+        <div class="drop"><label for="fV">VIIRS files (.csv)</label><input id="fV" type="file" accept=".csv,text/csv" multiple><p class="hint">Use one satellite (S-NPP) so counts stay steady.</p></div>
+      </div>
+      <div class="row">
+        <label class="field">Area name (shown on the share card)<input id="area" type="text" value="My area" maxlength="40"></label>
+        <label class="hint"><input id="lowConf" type="checkbox" checked> Ignore low-confidence detections</label>
+      </div>
+      <details>
+        <summary>Limit to a map box (optional)</summary>
+        <div class="bbox">
+          <label class="field">South lat<input id="bS" type="number" step="any" placeholder="27.6"></label>
+          <label class="field">North lat<input id="bN" type="number" step="any" placeholder="32.6"></label>
+          <label class="field">West lon<input id="bW" type="number" step="any" placeholder="73.8"></label>
+          <label class="field">East lon<input id="bE" type="number" step="any" placeholder="77.6"></label>
+        </div>
+        <p class="hint">Handy when a file covers a whole country. <button class="btn btn-quiet" id="presetPH" type="button" style="padding:4px 12px;font-size:.85rem">Fill Punjab and Haryana (approx.)</button></p>
+      </details>
+      <div class="btns" style="margin-top:16px">
+        <button class="btn btn-ink" id="go" type="button">Analyse my data</button>
+        <button class="btn btn-quiet" id="useSample" type="button">Back to sample data</button>
+      </div>
+      <p class="msg" id="loadMsg" role="status" aria-live="polite"></p>
+      <ul class="warnings" id="warnings"></ul>
+      <details>
+        <summary>Need test files? Download the sample as FIRMS-style CSVs</summary>
+        <div class="btns" style="margin-top:10px">
+          <button class="btn btn-quiet" id="dlM" type="button">Sample MODIS CSV</button>
+          <button class="btn btn-quiet" id="dlV" type="button">Sample VIIRS CSV</button>
+        </div>
+        <p class="hint">These are synthetic and only show the file format. Upload them above to try the flow.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="block method" id="method">
+  <div class="wrap">
+    <h2>How it works, and what it cannot do</h2>
+    <div class="panel">
+      <h3>The steps</h3>
+      <ul>
+        <li>Detections from MODIS and VIIRS are counted per day for your area. Low-confidence detections are dropped by default.</li>
+        <li>On the days both sensors were flying, we compare total counts. The ratio is the scale factor that turns VIIRS counts into MODIS-equivalent counts. Where both sensors cover a day we average MODIS and scaled VIIRS.</li>
+        <li>For every week we measure sensor agreement from two things: how close the two counts are after scaling, and how many 0.25 degree map cells where MODIS saw fire VIIRS also saw. That becomes the trust level.</li>
+        <li>Each week is compared with the same week in other years. A week is flagged when it is well above the usual spread.</li>
+        <li>The season shift is the date when half of a season's detections have happened. We fit a straight line through the years.</li>
+      </ul>
+      <h3>Limits to keep in mind</h3>
+      <ul>
+        <li>This is a prototype, not a validated scientific product. The scaling is one simple ratio for the whole area, not a physical model.</li>
+        <li>The trust thresholds (high from 0.70, medium from 0.45) are provisional.</li>
+        <li>Satellites only see fires when they pass over. Fires lit in the evening can be missed, so a drop in counts does not prove a drop in burning.</li>
+        <li>A trend line through a few years can be chance. The app tells you when it cannot rule that out.</li>
+        <li>The sample data on the first screen is synthetic. It only shows how the tool behaves.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><strong>FireTrust</strong>, a prototype for the NASA Space Apps Challenge 2026 by Aanchal Bhatt. Challenge: Harmonization of MODIS and VIIRS Hot Spots.</p>
+    <p>Fire detections come from <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a> (MODIS and VIIRS active fire data). This project is not an official NASA product and is not endorsed by NASA. Code and illustrations were written with AI assistance (Claude, by Anthropic).</p>
+  </div>
+</footer>
+
+<script>
+/*ENGINE*/
+</script>
+<script>
+/*APP*/
+</script>
+</body>
+</html>

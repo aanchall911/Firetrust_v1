@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FireTrust: is the fire trend real, or just the sensor?</title>
+<meta name="description" content="FireTrust harmonizes NASA MODIS and VIIRS fire detections into one record and shows how much to trust each week. Prototype for the NASA Space Apps Challenge 2026.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Nunito+Sans:wght@400;600;700;800&family=Noto+Sans+Devanagari:wght@700&family=Noto+Sans+Gurmukhi:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --royal:#2347C9; --blue:#2F6BFF; --sky:#7FB2FF; --pale:#EAF2FF; --paper:#F5F9FF;
+  --ink:#12234F; --muted:#4B5F8A; --line:#D3E1FA; --sun:#FFC94D; --fire:#FF5A36; --deep:#B3261E; --green:#14835F;
+  --head:"Bree Serif","Bookman Old Style",Georgia,serif;
+  --body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 1rem/1.55 var(--body);-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--head);font-weight:400;line-height:1.15;margin:0}
+h2{font-size:1.55rem;margin-bottom:.35rem}
+h3{font-size:1.1rem}
+p{margin:.4rem 0}
+a{color:var(--royal)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:4px}
+
+/* hero */
+.hero{background:var(--royal);color:#fff;padding:20px 0 48px;overflow:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--head);font-size:1.5rem}
+.brand svg{width:30px;height:30px}
+.chip{display:inline-block;background:rgba(255,255,255,.16);border-radius:999px;padding:4px 12px;font-size:.9rem;font-weight:600}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:36px;align-items:center}
+.hero h1{font-size:clamp(2.1rem,5.4vw,3.5rem);margin-bottom:14px}
+.hero .lead{font-size:1.15rem;max-width:34ch;color:#DCE7FF}
+.btns{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.btn{font:700 1rem var(--body);border:2px solid transparent;border-radius:999px;padding:11px 22px;cursor:pointer;text-decoration:none;display:inline-block}
+.btn-sun{background:var(--sun);color:var(--ink)}
+.btn-sun:hover{background:#ffd873}
+.btn-line{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+.btn-line:hover{background:rgba(255,255,255,.12)}
+.btn-ink{background:var(--royal);color:#fff}
+.btn-ink:hover{background:#1c3aa8}
+.btn-quiet{background:#fff;color:var(--royal);border-color:var(--line)}
+.btn-quiet:hover{border-color:var(--sky)}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.disc{background:#fff;color:var(--ink);border-radius:50%;padding:3%;width:100%;max-width:470px;margin:0 auto;box-shadow:0 18px 40px rgba(8,25,92,.35)}
+.disc svg{display:block;width:100%;height:auto}
+.disc svg path{cursor:pointer}
+.ring-note{max-width:470px;margin:14px auto 0;font-size:.95rem;color:#DCE7FF;min-height:3em;text-align:center}
+.legend{display:flex;align-items:center;gap:8px;justify-content:center;font-size:.85rem;color:#DCE7FF;margin-top:6px}
+.grad{width:130px;height:10px;border-radius:5px;background:linear-gradient(90deg,#E3EDFF,#FFE08A,#FF9A3D,#FF5A36,#B3261E)}
+
+/* data banner */
+.banner{padding:12px 0;font-size:.98rem}
+.banner.sample{background:var(--sun);color:var(--ink)}
+.banner.real{background:#D6F3E8;color:#0B4F39}
+.banner .wrap{display:flex;gap:10px;align-items:flex-start}
+
+section.block{padding:40px 0 8px}
+.sub{color:var(--muted);max-width:68ch;margin-bottom:14px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.two>*{min-width:0}
+
+/* loader */
+.loader{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+.drop{border:2px dashed var(--sky);border-radius:14px;padding:14px;background:var(--pale)}
+.drop label{font-weight:700;display:block;margin-bottom:6px}
+.drop input[type=file]{width:100%;font:inherit}
+.hint{font-size:.9rem;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:10px}
+.field{min-width:0;display:flex;flex-direction:column;gap:3px;font-size:.9rem;font-weight:600}
+.field input,.field select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;min-width:0;background:#fff;color:var(--ink)}
+.bbox>*{min-width:0}
+.bbox{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:8px}
+details{margin-top:10px}
+summary{cursor:pointer;font-weight:700;color:var(--royal)}
+.msg{margin-top:12px;font-size:.95rem}
+.msg.err{color:var(--deep);font-weight:600}
+.warnings{margin:12px 0 0;padding:0;list-style:none}
+.warnings li{background:#FFF3D1;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:.93rem}
+
+/* insights */
+.insight{background:var(--pale);border-radius:18px;padding:22px}
+.insight ul{margin:8px 0 0;padding-left:1.15rem}
+.insight li{margin:6px 0;font-size:1.05rem}
+.stats{display:flex;flex-wrap:wrap;gap:22px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.stat b{display:block;font-family:var(--head);font-weight:400;font-size:1.6rem;color:var(--royal);line-height:1.1}
+.stat span{font-size:.88rem;color:var(--muted)}
+.yearsel{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+.yearsel select{font:700 1rem var(--body);padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+
+/* calendar */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px}
+.scroll svg{display:block}
+.cal-legend{display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:.9rem;color:var(--muted);margin-top:10px}
+.dot-low{display:inline-block;width:12px;height:12px;border-radius:50%;background:#fff;border:1.5px solid var(--ink);vertical-align:-2px;margin-right:4px}
+.dot-med{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.5;vertical-align:1px;margin-right:6px}
+.dash{display:inline-block;width:16px;height:12px;border:1.5px dashed var(--ink);border-radius:3px;vertical-align:-2px;margin-right:4px}
+.dayinfo{margin-top:12px;background:var(--pale);border-radius:12px;padding:10px 14px;font-size:.96rem;min-height:3.2em}
+
+/* charts */
+.chart svg{width:100%;height:auto;display:block}
+.key{display:flex;flex-wrap:wrap;gap:14px;font-size:.9rem;color:var(--muted);margin-top:8px}
+.key i{display:inline-block;width:18px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+
+/* share */
+.share{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:28px;align-items:start}
+.share canvas{width:100%;height:auto;border-radius:16px;border:1px solid var(--line);background:#fff}
+.seg{display:inline-flex;border:2px solid var(--royal);border-radius:999px;overflow:hidden;margin:6px 0 12px}
+.seg button{font:700 1rem var(--body);padding:8px 16px;border:0;background:#fff;color:var(--royal);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--royal);color:#fff}
+
+footer{margin-top:48px;background:var(--ink);color:#C9D6F5;padding:28px 0;font-size:.92rem}
+footer a{color:#fff}
+.method h3{margin-top:16px}
+.method li{margin:4px 0}
+
+@media (max-width:860px){
+  .hero-grid,.two,.share{grid-template-columns:minmax(0,1fr)}
+  .loader{grid-template-columns:minmax(0,1fr)}
+  .bbox{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .disc{max-width:420px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+</style>
+</head>
+<body>
+<noscript><p style="padding:20px">FireTrust needs JavaScript to analyse fire data in your browser.</p></noscript>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#FFC94D" d="M16 2c1 5 7 8 7 15a7 7 0 0 1-14 0c0-3 1.5-5 3-6.5.3 2 1.2 3 2.200 3.500C13.500 8.500 14 5 16 2z"/><path fill="#FF5A36" d="M16 14c.8 2.500 4 3.800 4 7.500a4 4 0 0 1-8 0c0-2 1-3.200 2-4 .2 1 .6 1.500 1.200 1.800C14.800 17 15 15.500 16 14z"/></svg>
+        FireTrust
+      </div>
+      <span class="chip" id="modeChip">Sample data</span>
+    </div>
+    <div class="hero-grid">
+      <div>
+        <h1>Is the fire trend real, or just the sensor?</h1>
+        <p class="lead">FireTrust merges NASA's MODIS and VIIRS fire detections into one record and shows how much to trust each week.</p>
+        <div class="btns">
+          <a class="btn btn-sun" href="#insights">See what this season says</a>
+          <a class="btn btn-line" href="#data">Load my NASA data</a>
+        </div>
+      </div>
+      <div>
+        <div class="disc"><svg id="rings" viewBox="0 0 520 520" role="img" aria-label="Fire Rings: each year is one ring, oldest inside, newest outside"></svg></div>
+        <p class="ring-note" id="ringInfo">Fire Rings: each year is a ring, oldest inside, newest outside. Tap a ring to read it.</p>
+        <div class="legend"><span>fewer fires</span><span class="grad"></span><span>more fires</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="banner sample" id="banner"><div class="wrap" id="bannerText"></div></div>
+
+<main>
+<section class="block" id="insights">
+  <div class="wrap">
+    <h2>What this season says</h2>
+    <div class="yearsel"><label for="yearSel"><strong>Year in focus</strong></label><select id="yearSel"></select></div>
+    <div class="insight">
+      <ul id="insightList"></ul>
+      <div class="stats" id="stats"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="calendar">
+  <div class="wrap">
+    <h2>Trust calendar</h2>
+    <p class="sub">Each column is a 7-day block counted from 1 January. Colour shows harmonized fire detections per day. Dots show weeks where the two sensors disagree, and dashed outlines mark unusually busy weeks. Tap a day for the details.</p>
+    <div class="panel">
+      <div class="scroll"><div id="cal"></div></div>
+      <div class="cal-legend">
+        <span class="legend" style="color:inherit;margin:0"><span>fewer</span><span class="grad"></span><span>more</span></span>
+        <span><i class="dot-low"></i>low trust week</span>
+        <span><i class="dot-med"></i>medium trust</span>
+        <span><i class="dash"></i>unusually busy week</span>
+      </div>
+      <div class="dayinfo" id="dayInfo" aria-live="polite">Tap a day to see how the two sensors counted it.</div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="shift">
+  <div class="wrap two">
+    <div>
+      <h2>Season shift</h2>
+      <p class="sub">The date by which half of a season's fire detections have happened, year by year.</p>
+      <div class="panel chart">
+        <div class="yearsel" style="margin-top:0"><label for="winSel"><strong>Season</strong></label>
+          <select id="winSel"><option value="autumn">Autumn burning (Sep to Dec)</option><option value="spring">Spring burning (Mar to Jun)</option><option value="full">Whole year</option></select></div>
+        <div id="shiftChart"></div>
+        <p id="shiftText" class="hint" style="margin-top:10px"></p>
+      </div>
+    </div>
+    <div id="calibration">
+      <h2>Calibration check</h2>
+      <p class="sub">Why harmonize? Raw VIIRS counts run higher than MODIS. After scaling with the overlap years the two lines should line up.</p>
+      <div class="panel chart">
+        <div id="calibChart"></div>
+        <div class="key"><span><i style="background:#2347C9"></i>MODIS</span><span><i style="background:#9AA6C4"></i>VIIRS raw</span><span><i style="background:#FF9A3D"></i>VIIRS scaled to MODIS</span></div>
+        <p class="hint" id="calibText" style="margin-top:10px"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="sharecard">
+  <div class="wrap">
+    <h2>Share card</h2>
+    <p class="sub">One picture of the latest week, in English, Hindi or Punjabi, ready to send on WhatsApp.</p>
+    <div class="share">
+      <canvas id="card" width="1080" height="1080" aria-label="Share card preview"></canvas>
+      <div>
+        <div class="seg" role="group" aria-label="Language">
+          <button type="button" data-lang="en" aria-pressed="true">English</button>
+          <button type="button" data-lang="hi" aria-pressed="false">हिन्दी</button>
+          <button type="button" data-lang="pa" aria-pressed="false">ਪੰਜਾਬੀ</button>
+        </div>
+        <div class="btns" style="margin-top:0">
+          <button class="btn btn-ink" id="dlCard" type="button">Download picture</button>
+          <button class="btn btn-quiet" id="shCard" type="button">Share</button>
+        </div>
+        <p class="msg" id="shareMsg" role="status"></p>
+        <p class="hint">The card uses the year in focus and its last complete week. It always shows the data source and a note that satellites only see fires when they pass over.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="data">
+  <div class="wrap">
+    <h2>Use your own NASA data</h2>
+    <p class="sub">Download fire detections for your area from NASA FIRMS (free), then drop the CSV files here. Everything is analysed inside your browser and nothing is uploaded anywhere.</p>
+    <div class="panel">
+      <div class="loader">
+        <div class="drop"><label for="fM">MODIS files (.csv)</label><input id="fM" type="file" accept=".csv,text/csv" multiple><p class="hint">One or more years, for example MODIS C6.1.</p></div>
+        <div class="drop"><label for="fV">VIIRS files (.csv)</label><input id="fV" type="file" accept=".csv,text/csv" multiple><p class="hint">Use one satellite (S-NPP) so counts stay steady.</p></div>
+      </div>
+      <div class="row">
+        <label class="field">Area name (shown on the share card)<input id="area" type="text" value="My area" maxlength="40"></label>
+        <label class="hint"><input id="lowConf" type="checkbox" checked> Ignore low-confidence detections</label>
+      </div>
+      <details>
+        <summary>Limit to a map box (optional)</summary>
+        <div class="bbox">
+          <label class="field">South lat<input id="bS" type="number" step="any" placeholder="27.6"></label>
+          <label class="field">North lat<input id="bN" type="number" step="any" placeholder="32.6"></label>
+          <label class="field">West lon<input id="bW" type="number" step="any" placeholder="73.8"></label>
+          <label class="field">East lon<input id="bE" type="number" step="any" placeholder="77.6"></label>
+        </div>
+        <p class="hint">Handy when a file covers a whole country. <button class="btn btn-quiet" id="presetPH" type="button" style="padding:4px 12px;font-size:.85rem">Fill Punjab and Haryana (approx.)</button></p>
+      </details>
+      <div class="btns" style="margin-top:16px">
+        <button class="btn btn-ink" id="go" type="button">Analyse my data</button>
+        <button class="btn btn-quiet" id="useSample" type="button">Back to sample data</button>
+      </div>
+      <p class="msg" id="loadMsg" role="status" aria-live="polite"></p>
+      <ul class="warnings" id="warnings"></ul>
+      <details>
+        <summary>Need test files? Download the sample as FIRMS-style CSVs</summary>
+        <div class="btns" style="margin-top:10px">
+          <button class="btn btn-quiet" id="dlM" type="button">Sample MODIS CSV</button>
+          <button class="btn btn-quiet" id="dlV" type="button">Sample VIIRS CSV</button>
+        </div>
+        <p class="hint">These are synthetic and only show the file format. Upload them above to try the flow.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="block method" id="method">
+  <div class="wrap">
+    <h2>How it works, and what it cannot do</h2>
+    <div class="panel">
+      <h3>The steps</h3>
+      <ul>
+        <li>Detections from MODIS and VIIRS are counted per day for your area. Low-confidence detections are dropped by default.</li>
+        <li>On the days both sensors were flying, we compare total counts. The ratio is the scale factor that turns VIIRS counts into MODIS-equivalent counts. Where both sensors cover a day we average MODIS and scaled VIIRS.</li>
+        <li>For every week we measure sensor agreement from two things: how close the two counts are after scaling, and how many 0.25 degree map cells where MODIS saw fire VIIRS also saw. That becomes the trust level.</li>
+        <li>Each week is compared with the same week in other years. A week is flagged when it is well above the usual spread.</li>
+        <li>The season shift is the date when half of a season's detections have happened. We fit a straight line through the years.</li>
+      </ul>
+      <h3>Limits to keep in mind</h3>
+      <ul>
+        <li>This is a prototype, not a validated scientific product. The scaling is one simple ratio for the whole area, not a physical model.</li>
+        <li>The trust thresholds (high from 0.70, medium from 0.45) are provisional.</li>
+        <li>Satellites only see fires when they pass over. Fires lit in the evening can be missed, so a drop in counts does not prove a drop in burning.</li>
+        <li>A trend line through a few years can be chance. The app tells you when it cannot rule that out.</li>
+        <li>The sample data on the first screen is synthetic. It only shows how the tool behaves.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><strong>FireTrust</strong>, a prototype for the NASA Space Apps Challenge 2026 by Aanchal Bhatt. Challenge: Harmonization of MODIS and VIIRS Hot Spots.</p>
+    <p>Fire detections come from <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a> (MODIS and VIIRS active fire data). This project is not an official NASA product and is not endorsed by NASA. Code and illustrations were written with AI assistance (Claude, by Anthropic).</p>
+  </div>
+</footer>
+
+<script>
+/* FireTrust engine: parsing, harmonization, trust score, anomaly flags, season shift.
+   Plain JavaScript, no dependencies. Works in the browser and in Node (for testing). */
+const FT = (function () {
+  'use strict';
+  const DAY = 864e5;
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dayOf = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / DAY);
+  const isLeap = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const yearLen = y => (isLeap(y) ? 366 : 365);
+  const infoCache = new Map();
+  function info(day) {
+    let o = infoCache.get(day);
+    if (!o) { const y = new Date(day * DAY).getUTCFullYear(); o = { y, doy: day - dayOf(y, 1, 1) }; infoCache.set(day, o); }
+    return o;
+  }
+  const fmtDate = day => { const d = new Date(day * DAY); return d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; };
+  const fmtDateY = day => fmtDate(day) + ' ' + new Date(day * DAY).getUTCFullYear();
+  const isoDate = day => new Date(day * DAY).toISOString().slice(0, 10);
+
+  /* ---------- seeded random numbers (for reproducible sample data) ---------- */
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function gauss(r) { let u = 0, v = 0; while (!u) u = r(); while (!v) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function pois(r, l) {
+    if (l <= 0) return 0;
+    if (l < 30) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= r(); } while (p > L); return k - 1; }
+    return Math.max(0, Math.round(l + Math.sqrt(l) * gauss(r)));
+  }
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+  /* ---------- confidence handling ---------- */
+  function isLowConf(c) {
+    const s = String(c == null ? '' : c).trim().toLowerCase();
+    if (!s) return false;
+    if (/^\d/.test(s)) return Number(s) < 30;
+    return s[0] === 'l';
+  }
+
+  /* ---------- CSV parsing (FIRMS format), chunk friendly ---------- */
+  class CsvParser {
+    constructor(bbox) {
+      this.bbox = bbox || null; this.buf = ''; this.h = null;
+      this.points = []; this.rows = 0; this.skipped = 0; this.outside = 0;
+      this.minDay = Infinity; this.maxDay = -Infinity; this.sats = new Set();
+    }
+    push(chunk, final) {
+      this.buf += chunk;
+      const lines = this.buf.split(/\r?\n/);
+      this.buf = final ? '' : lines.pop();
+      for (let i = 0; i < lines.length; i++) this.line(lines[i]);
+    }
+    line(ln) {
+      if (!ln) return;
+      if (!this.h) {
+        const cols = ln.replace(/^\uFEFF/, '').split(',').map(s => s.trim().toLowerCase());
+        const h = { lat: cols.indexOf('latitude'), lon: cols.indexOf('longitude'), date: cols.indexOf('acq_date'), conf: cols.indexOf('confidence'), sat: cols.indexOf('satellite') };
+        const miss = [];
+        if (h.lat < 0) miss.push('latitude'); if (h.lon < 0) miss.push('longitude'); if (h.date < 0) miss.push('acq_date');
+        if (miss.length) throw new Error('This does not look like a NASA FIRMS CSV. Missing column(s): ' + miss.join(', ') + '.');
+        this.h = h; return;
+      }
+      const f = ln.split(','), h = this.h;
+      const ds = f[h.date];
+      if (!ds || ds.length < 10) { this.skipped++; return; }
+      const day = dayOf(+ds.substr(0, 4), +ds.substr(5, 2), +ds.substr(8, 2));
+      const lat = +f[h.lat], lon = +f[h.lon];
+      if (day !== day || lat !== lat || lon !== lon) { this.skipped++; return; }
+      this.rows++;
+      if (day < this.minDay) this.minDay = day;
+      if (day > this.maxDay) this.maxDay = day;
+      if (h.sat >= 0) this.sats.add((f[h.sat] || '').trim());
+      const b = this.bbox;
+      if (b && (lat < b.minLat || lat > b.maxLat || lon < b.minLon || lon > b.maxLon)) { this.outside++; return; }
+      this.points.push({ d: day, lat, lon, low: isLowConf(h.conf >= 0 ? f[h.conf] : '') });
+    }
+    result() { return { points: this.points, range: this.rows ? [this.minDay, this.maxDay] : null, rows: this.rows, skipped: this.skipped, outside: this.outside, sats: [...this.sats] }; }
+  }
+  function parseCsvText(text, bbox) { const p = new CsvParser(bbox); p.push(text, true); return p.result(); }
+
+  /* ---------- sample data (synthetic, clearly labelled in the app) ---------- */
+  function generateSample(opts) {
+    opts = opts || {};
+    const endDay = opts.endDay != null ? opts.endDay : dayOf(2026, 11, 12);
+    const startM = dayOf(2008, 1, 1), startV = dayOf(2012, 1, 20);
+    const rc = mulberry32(42);
+    const clusters = []; let tot = 0;
+    for (let i = 0; i < 32; i++) { const w = Math.pow(rc(), 2) + 0.05; tot += w; clusters.push({ lat: 29.8 + rc() * 2.4, lon: 74.0 + rc() * 2.8, w }); }
+    let acc = 0; clusters.forEach(c => { acc += c.w / tot; c.cum = acc; });
+    const pick = r => { const u = r(); for (const c of clusters) if (u <= c.cum) return c; return clusters[clusters.length - 1]; };
+    const M = [], V = [];
+    for (let y = 2008; y <= 2026; y++) {
+      const ry = mulberry32(1000 + y), rd = mulberry32(5000 + y);
+      const f1 = Math.exp(0.25 * gauss(ry)) * (y === 2026 ? 1.35 : 1);
+      const f2 = Math.exp(0.3 * gauss(ry));
+      const c1 = 306 - 0.5 * (y - 2008) + 2.5 * gauss(ry);
+      const c2 = 118 + 3 * gauss(ry);
+      const pM = y > 2020 ? 0.36 - 0.006 * (y - 2020) : 0.36, pV = 0.9;
+      const n = yearLen(y), y0 = dayOf(y, 1, 1);
+      let wM = 1, wV = 1;
+      for (let doy = 0; doy < n; doy++) {
+        const day = y0 + doy; if (day > endDay) break;
+        if (doy % 7 === 0) { wM = Math.exp(0.35 * gauss(rd)); wV = Math.exp(0.2 * gauss(rd)); }
+        const gap = (y === 2021 && doy >= 296 && doy <= 310) ? 0.4 : 1; // a short stretch of missing MODIS swaths
+        const inM = day >= startM, inV = day >= startV; if (!inM && !inV) continue;
+        const lam = 0.5 + 130 * f1 * Math.exp(-Math.pow((doy - c1) / 11, 2) / 2) + 22 * f2 * Math.exp(-Math.pow((doy - c2) / 9, 2) / 2);
+        const nt = pois(rd, lam);
+        for (let k = 0; k < nt; k++) {
+          const cl = pick(rd);
+          const lat = Math.round(clamp(cl.lat + 0.12 * gauss(rd), 29.5, 32.5) * 1000) / 1000;
+          const lon = Math.round(clamp(cl.lon + 0.12 * gauss(rd), 73.9, 77.0) * 1000) / 1000;
+          if (inM && rd() < clamp(pM * wM * gap, 0, 1)) { const low = rd() < 0.12; M.push({ d: day, lat, lon, low, c: low ? 10 + Math.floor(rd() * 20) : 30 + Math.floor(rd() * 70) }); }
+          if (inV && rd() < clamp(pV * wV, 0, 1)) { const low = rd() < 0.12; V.push({ d: day, lat, lon, low, c: low ? 'l' : (rd() < 0.3 ? 'h' : 'n') }); }
+        }
+      }
+    }
+    return { M, V, rM: [[startM, endDay]], rV: [[startV, endDay]], endDay };
+  }
+
+  function toFirmsCsv(points, sensor) {
+    const rr = mulberry32(99);
+    const head = sensor === 'M'
+      ? 'latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight'
+      : 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight';
+    const out = [head];
+    for (const p of points) {
+      const hh = 5 + Math.floor(rr() * 4), mm = Math.floor(rr() * 60);
+      const time = String(hh).padStart(2, '0') + String(mm).padStart(2, '0');
+      const frp = (3 + rr() * 40).toFixed(1);
+      if (sensor === 'M') out.push([p.lat, p.lon, (310 + rr() * 40).toFixed(1), '1.0', '1.0', isoDate(p.d), time, rr() < 0.5 ? 'Terra' : 'Aqua', 'MODIS', p.c, '6.1NRT', (295 + rr() * 15).toFixed(1), frp, 'D'].join(','));
+      else out.push([p.lat, p.lon, (320 + rr() * 40).toFixed(1), '0.4', '0.4', isoDate(p.d), time, 'N', 'VIIRS', p.c, '2.0NRT', (290 + rr() * 15).toFixed(1), frp, 'D'].join(','));
+    }
+    return out.join('\n') + '\n';
+  }
+
+  /* ---------- helpers ---------- */
+  function mergeRanges(r) {
+    r = (r || []).slice().sort((a, b) => a[0] - b[0]);
+    const o = [];
+    for (const x of r) { if (o.length && x[0] <= o[o.length - 1][1] + 1) o[o.length - 1][1] = Math.max(o[o.length - 1][1], x[1]); else o.push([x[0], x[1]]); }
+    return o;
+  }
+  const inR = (r, d) => { for (const x of r) if (d >= x[0] && d <= x[1]) return true; return false; };
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+  function sd(a) { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1)); }
+  function pearson(x, y) {
+    const n = x.length; if (n < 3) return null;
+    const mx = mean(x), my = mean(y); let sxy = 0, sxx = 0, syy = 0;
+    for (let i = 0; i < n; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2; }
+    return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : null;
+  }
+  function percentile(a, p) { if (!a.length) return 1; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }
+  const cellId = (lat, lon, c) => Math.floor((lat + 90) / c) * 100000 + Math.floor((lon + 180) / c);
+  const TRUST = { high: 0.7, medium: 0.45 };
+  const BIN = 5;
+
+  /* ---------- main analysis ---------- */
+  function analyse(M, V, rM, rV, opts) {
+    opts = opts || {};
+    const cell = opts.cell || 0.25, ignoreLow = opts.ignoreLow !== false;
+    rM = mergeRanges(rM); rV = mergeRanges(rV);
+    const warnings = [];
+    if (!rM.length && !rV.length) throw new Error('No dates found in the files.');
+    const m = ignoreLow ? M.filter(p => !p.low) : M, v = ignoreLow ? V.filter(p => !p.low) : V;
+    const all = rM.concat(rV);
+    const minDay = Math.min.apply(null, all.map(x => x[0])), maxDay = Math.max.apply(null, all.map(x => x[1]));
+    const nD = maxDay - minDay + 1;
+    const cM = new Int32Array(nD), cV = new Int32Array(nD), covM = new Uint8Array(nD), covV = new Uint8Array(nD);
+    for (let i = 0; i < nD; i++) { covM[i] = inR(rM, minDay + i) ? 1 : 0; covV[i] = inR(rV, minDay + i) ? 1 : 0; }
+    const sets = new Map();
+    function add(p, isM) {
+      const i = p.d - minDay; if (i < 0 || i >= nD) return;
+      (isM ? cM : cV)[i]++;
+      const di = info(p.d), key = di.y * 100 + Math.floor(di.doy / 7);
+      let o = sets.get(key); if (!o) { o = { m: new Set(), v: new Set() }; sets.set(key, o); }
+      (isM ? o.m : o.v).add(cellId(p.lat, p.lon, cell));
+    }
+    m.forEach(p => add(p, true)); v.forEach(p => add(p, false));
+
+    // calibration on overlap days
+    let sM = 0, sV = 0, overlapDays = 0; const byY = {};
+    for (let i = 0; i < nD; i++) if (covM[i] && covV[i]) {
+      overlapDays++; sM += cM[i]; sV += cV[i];
+      const y = info(minDay + i).y; const o = byY[y] || (byY[y] = { m: 0, v: 0, n: 0 }); o.m += cM[i]; o.v += cV[i]; o.n++;
+    }
+    let k = 1, calibrated = false;
+    if (overlapDays >= 60 && sM >= 20 && sV >= 20) { k = sM / sV; calibrated = true; }
+    else if (rM.length && rV.length) warnings.push('The two sensors overlap on too few days to calibrate, so VIIRS is not scaled. Add more years of both sensors.');
+    else warnings.push('Only one sensor was loaded, so there is nothing to cross-check. Add the other sensor to get a trust score.');
+    const kBy = {}; Object.keys(byY).forEach(y => { const o = byY[y]; if (o.n >= 100 && o.v >= 30) kBy[y] = o.m / o.v; });
+    const kVals = Object.values(kBy);
+
+    // daily harmonized series per year
+    const y0 = info(minDay).y, y1 = info(maxDay).y, years = [];
+    const DY = {};
+    for (let y = y0; y <= y1; y++) {
+      years.push(y);
+      const len = yearLen(y), base = dayOf(y, 1, 1);
+      const o = { len, base, m: new Int32Array(len), v: new Int32Array(len), cm: new Uint8Array(len), cv: new Uint8Array(len), h: new Float32Array(len).fill(NaN) };
+      for (let d = 0; d < len; d++) {
+        const i = base + d - minDay; if (i < 0 || i >= nD) continue;
+        o.m[d] = cM[i]; o.v[d] = cV[i]; o.cm[d] = covM[i]; o.cv[d] = covV[i];
+        o.h[d] = covM[i] && covV[i] ? (cM[i] + k * cV[i]) / 2 : covM[i] ? cM[i] : covV[i] ? k * cV[i] : NaN;
+      }
+      DY[y] = o;
+    }
+
+    // weekly records (7-day blocks counted from 1 Jan; the 1-2 day leftover is a stub)
+    const weeks = {};
+    for (const y of years) {
+      const o = DY[y], arr = [];
+      for (let w = 0; w < 53; w++) {
+        const a = w * 7, b = Math.min(a + 6, o.len - 1);
+        const rec = { y, w, start: o.base + a, end: o.base + b, stub: w === 52, complete: false, m: 0, v: 0, h: NaN, mode: 'none', level: null, agree: null, sim: null, mu: null, z: null, flag: null };
+        let ok = true, allM = true, allV = true;
+        for (let d = a; d <= b; d++) { rec.m += o.m[d]; rec.v += o.v[d]; if (o.h[d] !== o.h[d]) ok = false; if (!o.cm[d]) allM = false; if (!o.cv[d]) allV = false; }
+        rec.complete = ok && rec.end <= maxDay && !rec.stub;
+        rec.mode = allM && allV ? 'both' : allM ? 'M' : allV ? 'V' : 'mixed';
+        if (ok) { let s = 0; for (let d = a; d <= b; d++) s += o.h[d]; rec.h = s; }
+        if (rec.complete && rec.mode === 'both') {
+          const cm = rec.m, cv = k * rec.v, total = cm + cv;
+          if (total < 8) rec.level = 'few';
+          else {
+            const st = sets.get(y * 100 + w) || { m: new Set(), v: new Set() };
+            let inter = 0; st.m.forEach(c => { if (st.v.has(c)) inter++; });
+            const denom = Math.min(st.m.size, st.v.size);
+            rec.sim = Math.min(cm, cv) / Math.max(cm, cv);
+            rec.agree = denom ? inter / denom : 0;
+            const score = 0.5 * rec.sim + 0.5 * rec.agree; rec.score = score;
+            rec.level = score >= TRUST.high ? 'high' : score >= TRUST.medium ? 'medium' : 'low';
+          }
+        }
+        arr.push(rec);
+      }
+      weeks[y] = arr;
+    }
+    // anomaly flags against the same week in other years
+    for (let w = 0; w < 52; w++) {
+      const vals = years.filter(y => weeks[y][w].complete).map(y => ({ y, h: weeks[y][w].h }));
+      for (const it of vals) {
+        const others = vals.filter(x => x.y !== it.y).map(x => x.h);
+        if (others.length < 4) continue;
+        const mu = mean(others), sdE = Math.max(sd(others), Math.sqrt(Math.max(mu, 1)));
+        const rec = weeks[it.y][w]; rec.mu = mu; rec.z = (it.h - mu) / sdE;
+        if (rec.z >= 1.5 && it.h >= 10) rec.flag = 'high'; else if (rec.z <= -1.5 && mu >= 10) rec.flag = 'low';
+      }
+    }
+    // agreement between sensors, week by week
+    const px = [], py = [];
+    years.forEach(y => weeks[y].forEach(r => { if (r.complete && r.mode === 'both') { px.push(r.m); py.push(r.v); } }));
+    const r = pearson(px, py);
+
+    // rings: 5-day bins
+    const nb = Math.ceil(366 / BIN), rings = {};
+    const posBins = [];
+    for (const y of years) {
+      const o = DY[y], bins = new Array(nb).fill(NaN);
+      for (let d = 0; d < o.len; d++) { if (o.h[d] === o.h[d]) { const b = Math.min(nb - 1, Math.floor(d / BIN)); bins[b] = (bins[b] !== bins[b] ? 0 : bins[b]) + o.h[d]; } }
+      bins.forEach(x => { if (x > 0) posBins.push(x); });
+      rings[y] = bins;
+    }
+    const dailyPos = []; years.forEach(y => { const h = DY[y].h; for (let d = 0; d < h.length; d++) if (h[d] > 0) dailyPos.push(h[d]); });
+
+    const sats = opts.satsV || [];
+    if (sats.length > 1) warnings.push('Your VIIRS file mixes several satellites (' + sats.join(', ') + '). Counts rise when a satellite is added, which can look like a trend. For a steady record use one satellite, such as S-NPP.');
+    return {
+      meta: { years, minDay, maxDay, rM, rV, nM: m.length, nV: v.length, lowDropped: { M: M.length - m.length, V: V.length - v.length }, k, calibrated, overlapDays, kBy, kMin: kVals.length ? Math.min.apply(null, kVals) : null, kMax: kVals.length ? Math.max.apply(null, kVals) : null, r, overlapWeeks: px.length, cell, ignoreLow, warnings },
+      DY, weeks, rings, ringScale: percentile(posBins, 0.97), dailyScale: percentile(dailyPos, 0.98), nBins: nb, BIN
+    };
+  }
+
+  /* ---------- season shift ---------- */
+  const WINDOWS = { autumn: { label: 'Autumn burning (Sep to Dec)', a: 243, b: 365 }, spring: { label: 'Spring burning (Mar to Jun)', a: 59, b: 180 }, full: { label: 'Whole year', a: 0, b: 365 } };
+  function seasonShift(res, key) {
+    const W = WINDOWS[key] || WINDOWS.autumn, pts = [];
+    for (const y of res.meta.years) {
+      const o = res.DY[y], b = Math.min(W.b, o.len - 1);
+      let ok = true, tot = 0;
+      for (let d = W.a; d <= b; d++) { if (o.h[d] !== o.h[d]) { ok = false; break; } tot += o.h[d]; }
+      if (!ok || tot < 50) continue;
+      let cum = 0, d50 = null;
+      for (let d = W.a; d <= b; d++) { const nx = cum + o.h[d]; if (nx >= tot / 2) { d50 = d + (o.h[d] > 0 ? (tot / 2 - cum) / o.h[d] : 0); break; } cum = nx; }
+      pts.push({ y, d50, total: tot });
+    }
+    let slope = null, se = null, t = null;
+    if (pts.length >= 4) {
+      const xs = pts.map(p => p.y), ys = pts.map(p => p.d50), mx = mean(xs), my = mean(ys);
+      let sxx = 0, sxy = 0; for (let i = 0; i < xs.length; i++) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); }
+      slope = sxy / sxx; const icpt = my - slope * mx;
+      let sse = 0; for (let i = 0; i < xs.length; i++) sse += (ys[i] - (icpt + slope * xs[i])) ** 2;
+      se = Math.sqrt(sse / (xs.length - 2) / sxx); t = se > 0 ? slope / se : null;
+      pts.icpt = icpt;
+    }
+    return { key, label: W.label, a: W.a, b: W.b, pts, slope, se, t, n: pts.length };
+  }
+
+  /* ---------- plain-language insights ---------- */
+  function lastCompleteWeek(res, year) {
+    const arr = res.weeks[year]; for (let w = 51; w >= 0; w--) if (arr[w].complete) return arr[w]; return null;
+  }
+  function insightsFor(res, y) {
+    const arr = res.weeks[y].filter(r => r.complete);
+    const lines = [];
+    if (!arr.length) return { lines: ['This year has no complete week of data yet.'], status: null };
+    const peak = arr.reduce((a, b) => (b.h > a.h ? b : a));
+    lines.push('Busiest week of ' + y + ': ' + fmtDate(peak.start) + ' to ' + fmtDate(peak.end) + ', about ' + Math.round(peak.h).toLocaleString('en-US') + ' MODIS-equivalent detections.');
+    const lw = lastCompleteWeek(res, y);
+    let status = null;
+    if (lw) {
+      const isLatest = y === res.meta.years[res.meta.years.length - 1];
+      if (lw.mu != null && Math.max(lw.h, lw.mu) < 10) {
+        lines.push((isLatest ? 'Latest complete week' : 'Last complete week') + ' (' + fmtDate(lw.start) + ' to ' + fmtDate(lw.end) + '): very few detections, as is normal for this time of year.');
+        status = { state: 'quiet', level: lw.level, start: lw.start, end: lw.end, h: lw.h, mu: lw.mu, week: lw };
+      } else if (lw.mu != null) {
+        const pct = Math.round((lw.h / lw.mu - 1) * 100);
+        const state = lw.h / lw.mu >= 1.2 && lw.z >= 1 ? 'above' : lw.h / lw.mu <= 0.8 && lw.z <= -1 ? 'below' : 'near';
+        lines.push((isLatest ? 'Latest complete week' : 'Last complete week') + ' (' + fmtDate(lw.start) + ' to ' + fmtDate(lw.end) + '): ' + (state === 'near' ? 'close to the usual level for this time of year.' : Math.abs(pct) + '% ' + (pct > 0 ? 'above' : 'below') + ' the usual level for this time of year.'));
+        status = { state, pct, level: lw.level, start: lw.start, end: lw.end, h: lw.h, mu: lw.mu, week: lw };
+      } else {
+        lines.push('Not enough history yet to say whether the latest week is unusual (needs 4 other years with fire in the same week).');
+        status = { state: 'unknown', level: lw.level, start: lw.start, end: lw.end, h: lw.h, mu: lw.mu, week: lw };
+      }
+    }
+    const nHigh = arr.filter(r => r.flag === 'high').length;
+    lines.push(nHigh ? nHigh + ' unusually busy week' + (nHigh > 1 ? 's' : '') + ' flagged in ' + y + '.' : 'No unusually busy weeks flagged in ' + y + '.');
+    const lv = { high: 0, medium: 0, low: 0 }; arr.forEach(r => { if (lv[r.level] != null) lv[r.level]++; });
+    const nT = lv.high + lv.medium + lv.low;
+    if (nT) lines.push('Sensor agreement: ' + Math.round(100 * lv.high / nT) + '% of weeks high trust, ' + Math.round(100 * lv.medium / nT) + '% medium, ' + Math.round(100 * lv.low / nT) + '% low.');
+    // last 12 weeks for the share card
+    const last12 = []; const yarr = res.weeks[y]; let idx = lw ? lw.w : -1;
+    for (let w = idx, c = 0; w >= 0 && c < 12; w--) { if (yarr[w].complete) { last12.unshift({ h: yarr[w].h, mu: yarr[w].mu }); c++; } }
+    if (status) status.last12 = last12;
+    return { lines, status, peak };
+  }
+
+  return { DAY, MON, dayOf, info, yearLen, fmtDate, fmtDateY, isoDate, generateSample, toFirmsCsv, CsvParser, parseCsvText, analyse, seasonShift, insightsFor, lastCompleteWeek, WINDOWS, TRUST, isLowConf };
+})();
+
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const C = { royal: '#2347C9', sky: '#7FB2FF', pale: '#EAF2FF', ink: '#12234F', sun: '#FFC94D', fire: '#FF5A36', muted: '#4B5F8A', line: '#D3E1FA' };
+  const STOPS = [[0, [227, 237, 255]], [0.25, [255, 224, 138]], [0.5, [255, 154, 61]], [0.75, [255, 90, 54]], [1, [179, 38, 30]]];
+  function heat(t) {
+    t = Math.max(0, Math.min(1, t));
+    for (let i = 1; i < STOPS.length; i++) if (t <= STOPS[i][0]) {
+      const a = STOPS[i - 1], b = STOPS[i], u = (t - a[0]) / (b[0] - a[0]);
+      return 'rgb(' + a[1].map((v, j) => Math.round(v + (b[1][j] - v) * u)).join(',') + ')';
+    }
+    return 'rgb(179,38,30)';
+  }
+  const v2t = (v, scale) => Math.sqrt(Math.max(0, v) / scale);
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+
+  const state = { res: null, isSample: true, area: 'Sample area', year: null, win: 'autumn', lang: 'en', sample: null, source: '' };
+
+  /* ---------- data in ---------- */
+  function loadSample() {
+    if (!state.sample) state.sample = FT.generateSample();
+    const S = state.sample;
+    const res = FT.analyse(S.M, S.V, S.rM, S.rV, { ignoreLow: true, satsV: ['N'] });
+    setData(res, { isSample: true, area: 'Sample area (Punjab-like)', source: '' });
+  }
+  function setData(res, o) {
+    state.res = res; state.isSample = o.isSample; state.area = o.area; state.source = o.source || '';
+    const ys = res.meta.years; state.year = ys[ys.length - 1];
+    renderAll();
+  }
+  async function readFile(file, bbox, onProg) {
+    const p = new FT.CsvParser(bbox);
+    if (file.stream && window.TextDecoder) {
+      const rd = file.stream().getReader(), dec = new TextDecoder(); let read = 0;
+      for (;;) { const r = await rd.read(); if (r.done) break; read += r.value.length; p.push(dec.decode(r.value, { stream: true })); onProg(read / (file.size || 1)); }
+      p.push(dec.decode(), true);
+    } else { p.push(await file.text(), true); }
+    return p.result();
+  }
+  async function analyseFiles() {
+    const msg = $('#loadMsg'), btn = $('#go');
+    msg.className = 'msg'; msg.textContent = '';
+    const fm = [...$('#fM').files], fv = [...$('#fV').files];
+    if (!fm.length && !fv.length) { msg.className = 'msg err'; msg.textContent = 'Choose at least one MODIS or VIIRS CSV file first.'; return; }
+    const num = id => { const v = $(id).value.trim(); return v === '' ? null : Number(v); };
+    const b = { minLat: num('#bS'), maxLat: num('#bN'), minLon: num('#bW'), maxLon: num('#bE') };
+    const bbox = Object.values(b).every(x => x !== null && !isNaN(x)) ? b : null;
+    if (!bbox && Object.values(b).some(x => x !== null)) { msg.className = 'msg err'; msg.textContent = 'Fill all four map-box numbers, or clear them all.'; return; }
+    btn.disabled = true;
+    try {
+      const out = { M: { pts: [], ranges: [], rows: 0, sats: new Set() }, V: { pts: [], ranges: [], rows: 0, sats: new Set() } };
+      const jobs = fm.map(f => ['M', f]).concat(fv.map(f => ['V', f]));
+      for (let i = 0; i < jobs.length; i++) {
+        const [k, f] = jobs[i];
+        const r = await readFile(f, bbox, p => { msg.textContent = 'Reading ' + f.name + ' (' + (i + 1) + ' of ' + jobs.length + '): ' + Math.round(p * 100) + '%'; });
+        if (!r.rows) throw new Error(f.name + ' has no readable fire rows.');
+        for (let j = 0; j < r.points.length; j++) out[k].pts.push(r.points[j]);
+        out[k].ranges.push(r.range); out[k].rows += r.rows; r.sats.forEach(s => out[k].sats.add(s));
+        await new Promise(res => setTimeout(res, 0));
+      }
+      msg.textContent = 'Analysing...';
+      await new Promise(res => setTimeout(res, 20));
+      if (!out.M.pts.length && !out.V.pts.length) throw new Error('No detections fall inside that map box. Check the four numbers.');
+      const res = FT.analyse(out.M.pts, out.V.pts, out.M.ranges, out.V.ranges, { ignoreLow: $('#lowConf').checked, satsV: [...out.V.sats] });
+      const area = $('#area').value.trim() || 'My area';
+      setData(res, { isSample: false, area, source: fmt(res.meta.nM) + ' MODIS and ' + fmt(res.meta.nV) + ' VIIRS detections' });
+      msg.textContent = 'Done. Scroll up to see your results.';
+      $('#insights').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) { msg.className = 'msg err'; msg.textContent = e.message || String(e); }
+    btn.disabled = false;
+  }
+
+  /* ---------- render all ---------- */
+  function renderAll() {
+    renderBanner(); renderRings(); renderYearSelect(); renderInsights(); renderCalendar(); renderShift(); renderCalib(); renderShare(); renderWarnings();
+  }
+  function renderBanner() {
+    const b = $('#banner'), t = $('#bannerText'), m = state.res.meta;
+    $('#modeChip').textContent = state.isSample ? 'Sample data' : state.area;
+    if (state.isSample) { b.className = 'banner sample'; t.innerHTML = '<span><strong>You are looking at synthetic sample data</strong> for a Punjab-like area, made up to show how FireTrust behaves. To see a real area, <a href="#data">load NASA FIRMS files</a>.</span>'; }
+    else { b.className = 'banner real'; t.innerHTML = '<span><strong>Your data:</strong> ' + esc(state.area) + ', ' + esc(state.source) + ', ' + FT.fmtDateY(m.minDay) + ' to ' + FT.fmtDateY(m.maxDay) + '.</span>'; }
+  }
+  function renderWarnings() {
+    const w = state.res.meta.warnings;
+    $('#warnings').innerHTML = w.map(x => '<li>' + esc(x) + '</li>').join('');
+  }
+  function renderYearSelect() {
+    const sel = $('#yearSel'), ys = state.res.meta.years.slice().reverse();
+    sel.innerHTML = ys.map(y => '<option value="' + y + '">' + y + '</option>').join('');
+    sel.value = state.year;
+  }
+  function setYear(y) {
+    state.year = y; $('#yearSel').value = y;
+    renderRings(); renderInsights(); renderCalendar(); renderCalib(); renderShare();
+  }
+
+  /* ---------- Fire Rings ---------- */
+  function renderRings() {
+    const res = state.res, years = res.meta.years, n = years.length;
+    const cx = 260, cy = 260, r0 = 62, rEnd = 222, step = (rEnd - r0) / n, th = step * 0.84, TAU = Math.PI * 2, yl = 365.25, nb = res.nBins;
+    const pt = (r, a) => [cx + r * Math.cos(a - Math.PI / 2), cy + r * Math.sin(a - Math.PI / 2)];
+    const f = x => x.toFixed(1);
+    let g = '';
+    years.forEach((y, i) => {
+      const rin = r0 + i * step, rout = rin + th, bins = res.rings[y];
+      for (let b = 0; b < nb; b++) {
+        const a0 = (b * 5 / yl) * TAU, a1 = Math.min((b + 1) * 5, yl) / yl * TAU - 0.004, v = bins[b];
+        const fill = v !== v ? '#EEF2FA' : heat(v2t(v, res.ringScale));
+        const p0 = pt(rout, a0), p1 = pt(rout, a1), p2 = pt(rin, a1), p3 = pt(rin, a0);
+        g += '<path data-y="' + y + '" data-b="' + b + '" fill="' + fill + '" d="M' + f(p0[0]) + ' ' + f(p0[1]) + 'A' + rout.toFixed(2) + ' ' + rout.toFixed(2) + ' 0 0 1 ' + f(p1[0]) + ' ' + f(p1[1]) + 'L' + f(p2[0]) + ' ' + f(p2[1]) + 'A' + rin.toFixed(2) + ' ' + rin.toFixed(2) + ' 0 0 0 ' + f(p3[0]) + ' ' + f(p3[1]) + 'Z"/>';
+      }
+    });
+    const si = years.indexOf(state.year);
+    if (si >= 0) { const rin = r0 + si * step, rout = rin + th; g += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (rin - 0.8).toFixed(2) + '" fill="none" stroke="' + C.ink + '" stroke-width="1.2" pointer-events="none"/><circle cx="' + cx + '" cy="' + cy + '" r="' + (rout + 0.8).toFixed(2) + '" fill="none" stroke="' + C.ink + '" stroke-width="1.2" pointer-events="none"/>'; }
+    let cum = 0;
+    'JFMAMJJASOND'.split('').forEach((l, m) => {
+      const len = [31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m], a = ((cum + len / 2) / yl) * TAU; cum += len;
+      const p = pt(rEnd + 17, a); g += '<text x="' + f(p[0]) + '" y="' + f(p[1]) + '" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="' + C.ink + '" pointer-events="none">' + l + '</text>';
+    });
+    years.forEach((y, i) => {
+      if ((y - years[0]) % 4 === 0 || i === n - 1) { const rin = r0 + i * step; g += '<text x="' + (cx - 5) + '" y="' + (cy - rin - th * 0.35).toFixed(1) + '" text-anchor="end" font-size="9.5" font-weight="700" fill="' + C.ink + '" stroke="#fff" stroke-width="2.4" paint-order="stroke" pointer-events="none">' + y + '</text>'; }
+    });
+    g += '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="15" font-weight="800" fill="' + C.royal + '" pointer-events="none" style="font-family:var(--head)">FIRE</text><text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle" font-size="15" font-weight="800" fill="' + C.royal + '" pointer-events="none" style="font-family:var(--head)">RINGS</text>';
+    $('#rings').innerHTML = g;
+  }
+  function ringInfo(y, b) {
+    const res = state.res, v = res.rings[y][b], d0 = b * 5, base = res.DY[y].base;
+    const d1 = Math.min(d0 + 4, res.DY[y].len - 1);
+    const txt = v !== v ? 'no satellite data loaded for these days' : 'about ' + fmt(v) + ' MODIS-equivalent detections';
+    $('#ringInfo').textContent = y + ', ' + FT.fmtDate(base + d0) + ' to ' + FT.fmtDate(base + d1) + ': ' + txt + '.';
+  }
+
+  /* ---------- insights ---------- */
+  function renderInsights() {
+    const res = state.res, ins = FT.insightsFor(res, state.year), m = res.meta;
+    let html = ins.lines.map(l => '<li>' + esc(l) + '</li>').join('');
+    html += '<li>Satellites only see fires when they pass over, so these counts are a floor, not the full amount of burning.</li>';
+    $('#insightList').innerHTML = html;
+    const st = [];
+    if (m.calibrated) st.push('<div class="stat"><b>' + m.k.toFixed(2) + '</b><span>VIIRS to MODIS scale' + (m.kMin != null ? ' (yearly range ' + m.kMin.toFixed(2) + ' to ' + m.kMax.toFixed(2) + ')' : '') + '</span></div>');
+    if (m.r != null) st.push('<div class="stat"><b>' + m.r.toFixed(2) + '</b><span>weekly correlation between sensors, over ' + m.overlapWeeks + ' weeks</span></div>');
+    st.push('<div class="stat"><b>' + fmt(m.nM + m.nV) + '</b><span>detections used' + (m.ignoreLow ? ' (low-confidence ones dropped)' : '') + '</span></div>');
+    $('#stats').innerHTML = st.join('');
+  }
+
+  /* ---------- trust calendar ---------- */
+  function renderCalendar() {
+    const res = state.res, y = state.year, o = res.DY[y], step = 17, cell = 14, left = 4, top = 24, cols = 53;
+    const W = left + cols * step, Hh = top + 7 * step + 4;
+    let s = '<svg viewBox="0 0 ' + W + ' ' + Hh + '" width="' + W + '" height="' + Hh + '" role="img" aria-label="Calendar of fire detections for ' + y + '">';
+    for (let m = 0; m < 12; m++) { const d = FT.dayOf(y, m + 1, 1) - o.base; s += '<text x="' + (left + Math.floor(d / 7) * step) + '" y="14" font-size="12" font-weight="700" fill="' + C.ink + '">' + FT.MON[m] + '</text>'; }
+    for (let d = 0; d < o.len; d++) {
+      const col = Math.floor(d / 7), row = d % 7, h = o.h[d];
+      const fill = h !== h ? '#F1F4FA' : heat(v2t(h, res.dailyScale));
+      s += '<rect data-d="' + d + '" x="' + (left + col * step) + '" y="' + (top + row * step) + '" width="' + cell + '" height="' + cell + '" rx="3" fill="' + fill + '"/>';
+    }
+    for (let w = 0; w < 52; w++) {
+      const rec = res.weeks[y][w];
+      if (rec.level === 'low' || rec.level === 'medium') for (let d = w * 7; d < w * 7 + 7; d++) {
+        if (o.h[d] !== o.h[d]) continue;
+        const cx = left + w * step + cell / 2, cy = top + (d % 7) * step + cell / 2;
+        s += rec.level === 'low' ? '<circle cx="' + cx + '" cy="' + cy + '" r="3.4" fill="#fff" stroke="' + C.ink + '" stroke-width="1" pointer-events="none"/>' : '<circle cx="' + cx + '" cy="' + cy + '" r="1.8" fill="' + C.ink + '" opacity=".5" pointer-events="none"/>';
+      }
+      if (rec.flag === 'high') s += '<rect x="' + (left + w * step - 2.5) + '" y="' + (top - 2.5) + '" width="' + (cell + 5) + '" height="' + (7 * step - 3 + 4) + '" rx="5" fill="none" stroke="' + C.ink + '" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>';
+    }
+    $('#cal').innerHTML = s + '</svg>';
+    $('#dayInfo').textContent = 'Tap a day to see how the two sensors counted it.';
+  }
+  function dayInfo(doy) {
+    const res = state.res, y = state.year, o = res.DY[y], day = o.base + doy, rec = res.weeks[y][Math.floor(doy / 7)], k = res.meta.k;
+    const parts = ['<strong>' + FT.fmtDateY(day) + '</strong>'];
+    if (!o.cm[doy] && !o.cv[doy]) { parts.push('No satellite data was loaded for this day.'); }
+    else {
+      const bits = [];
+      if (o.cm[doy]) bits.push('MODIS saw ' + o.m[doy]);
+      if (o.cv[doy]) bits.push('VIIRS saw ' + o.v[doy] + (res.meta.calibrated ? ' (' + (o.v[doy] * k).toFixed(1) + ' when scaled to MODIS)' : ''));
+      parts.push(bits.join('; ') + '. Harmonized: ' + o.h[doy].toFixed(1) + '.');
+      if (rec.stub) parts.push('This is one of the last days of the year and is not scored.');
+      else if (rec.level === 'few') parts.push('Week trust: too few fires this week to judge.');
+      else if (rec.level) parts.push('Week trust: <strong>' + rec.level + '</strong> (counts agree ' + Math.round(rec.sim * 100) + '%, map cells agree ' + Math.round(rec.agree * 100) + '%).');
+      else if (rec.mode === 'M' || rec.mode === 'V') parts.push('Only ' + (rec.mode === 'M' ? 'MODIS' : 'VIIRS') + ' covers this week, so there is no trust score.');
+      if (rec.flag === 'high') parts.push('Unusually busy week: about ' + fmt(rec.h) + ' versus a usual ' + fmt(rec.mu) + '.');
+      if (rec.flag === 'low') parts.push('Unusually quiet week: about ' + fmt(rec.h) + ' versus a usual ' + fmt(rec.mu) + '.');
+    }
+    $('#dayInfo').innerHTML = parts.join(' ');
+  }
+
+  /* ---------- charts ---------- */
+  function renderShift() {
+    const res = state.res, ss = FT.seasonShift(res, state.win), el = $('#shiftChart'), tx = $('#shiftText');
+    if (ss.n < 3) { el.innerHTML = '<p class="hint">Not enough complete seasons yet. This chart needs at least 3 years where the whole season is in your data.</p>'; tx.textContent = ''; return; }
+    const W = 640, Hh = 300, l = 58, r = 14, t = 16, b = 34, ys = ss.pts.map(p => p.y), ds = ss.pts.map(p => p.d50);
+    const y0 = ys[0], y1 = ys[ys.length - 1], lo = Math.floor((Math.min.apply(null, ds) - 4) / 7) * 7, hi = Math.ceil((Math.max.apply(null, ds) + 4) / 7) * 7;
+    const X = y => l + (y1 === y0 ? 0.5 : (y - y0) / (y1 - y0)) * (W - l - r), Y = d => t + (d - lo) / (hi - lo) * (Hh - t - b);
+    let s = '<svg viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Date half the season has burned, by year">';
+    for (let d = lo; d <= hi; d += 7) s += '<line x1="' + l + '" x2="' + (W - r) + '" y1="' + Y(d) + '" y2="' + Y(d) + '" stroke="' + C.line + '"/><text x="' + (l - 8) + '" y="' + (Y(d) + 4) + '" text-anchor="end" font-size="12" fill="' + C.muted + '">' + FT.fmtDate(FT.dayOf(2001, 1, 1) + Math.round(d)) + '</text>';
+    const step = Math.max(1, Math.ceil(ss.pts.length / 8));
+    ss.pts.forEach((p, i) => { if (i % step === 0 || i === ss.pts.length - 1) s += '<text x="' + X(p.y) + '" y="' + (Hh - 10) + '" text-anchor="middle" font-size="12" fill="' + C.muted + '">' + p.y + '</text>'; });
+    s += '<polyline fill="none" stroke="' + C.sky + '" stroke-width="2.5" points="' + ss.pts.map(p => X(p.y) + ',' + Y(p.d50)).join(' ') + '"/>';
+    if (ss.slope != null) s += '<line x1="' + X(y0) + '" y1="' + Y(ss.pts.icpt + ss.slope * y0) + '" x2="' + X(y1) + '" y2="' + Y(ss.pts.icpt + ss.slope * y1) + '" stroke="' + C.ink + '" stroke-width="1.6" stroke-dasharray="6 4"/>';
+    ss.pts.forEach(p => { const sel = p.y === state.year; s += '<circle cx="' + X(p.y) + '" cy="' + Y(p.d50) + '" r="' + (sel ? 7 : 5) + '" fill="' + (sel ? C.fire : '#2F6BFF') + '" stroke="#fff" stroke-width="1.5"><title>' + p.y + ': ' + FT.fmtDate(FT.dayOf(2001, 1, 1) + Math.round(p.d50)) + '</title></circle>'; });
+    el.innerHTML = s + '</svg>';
+    let msg = 'Dots show the date by which half of the ' + ss.label.split(' (')[0].toLowerCase() + ' detections had happened. ';
+    if (ss.slope != null) {
+      const sl = ss.slope, ci = 1.96 * ss.se;
+      msg += 'Across ' + ss.n + ' seasons the line moves ' + Math.abs(sl).toFixed(2) + ' days ' + (sl < 0 ? 'earlier' : 'later') + ' per year (give or take ' + ci.toFixed(2) + '). ' + (ss.t != null && Math.abs(ss.t) >= 2 ? 'That is stronger than ordinary year-to-year wobble, but it describes the past and is not a forecast.' : 'That could be ordinary year-to-year wobble, so do not read it as a trend.');
+    }
+    tx.textContent = msg;
+  }
+  function renderCalib() {
+    const res = state.res, y = state.year, m = res.meta, k = m.k, el = $('#calibChart');
+    const wk = res.weeks[y].filter(r => !r.stub && r.end <= m.maxDay);
+    const sM = wk.map(r => (r.mode === 'both' || r.mode === 'M') ? r.m : null);
+    const sV = wk.map(r => (r.mode === 'both' || r.mode === 'V') ? r.v : null);
+    const sK = sV.map(v => v == null ? null : v * k);
+    const all = sM.concat(sV, sK).filter(v => v != null);
+    if (!all.length) { el.innerHTML = '<p class="hint">No complete weeks to show for ' + y + '.</p>'; $('#calibText').textContent = ''; return; }
+    const W = 640, Hh = 290, l = 46, r = 12, t = 14, b = 30, ymax = Math.max(10, Math.max.apply(null, all) * 1.1);
+    const X = w => l + (w + 0.5) / 52 * (W - l - r), Y = v => t + (1 - v / ymax) * (Hh - t - b);
+    let s = '<svg viewBox="0 0 ' + W + ' ' + Hh + '" role="img" aria-label="Weekly MODIS, VIIRS and scaled VIIRS counts for ' + y + '">';
+    for (let i = 0; i <= 4; i++) { const v = ymax * i / 4; s += '<line x1="' + l + '" x2="' + (W - r) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="' + C.line + '"/><text x="' + (l - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end" font-size="12" fill="' + C.muted + '">' + fmt(v) + '</text>'; }
+    for (let mo = 0; mo < 12; mo += 1) { const d = FT.dayOf(y, mo + 1, 1) - res.DY[y].base; s += '<text x="' + X(Math.floor(d / 7)) + '" y="' + (Hh - 8) + '" font-size="12" fill="' + C.muted + '">' + FT.MON[mo] + '</text>'; }
+    const line = (arr, col, dash, wd) => { let d = '', pen = false; arr.forEach((v, w) => { if (v == null) { pen = false; return; } d += (pen ? 'L' : 'M') + X(w).toFixed(1) + ' ' + Y(v).toFixed(1); pen = true; }); return d ? '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + wd + '"' + (dash ? ' stroke-dasharray="' + dash + '"' : '') + ' stroke-linejoin="round"/>' : ''; };
+    s += line(sV, '#9AA6C4', '', 2) + line(sM, C.royal, '', 2.6) + (m.calibrated ? line(sK, '#FF9A3D', '6 4', 2.4) : '');
+    el.innerHTML = s + '</svg>';
+    $('#calibText').textContent = m.calibrated ? 'Scale factor ' + k.toFixed(2) + ': in the overlap years, one VIIRS detection stands for about ' + k.toFixed(2) + ' MODIS detections. Showing ' + y + ', weekly totals.' : 'Calibration needs both sensors with enough overlapping days. Showing raw weekly totals for ' + y + '.';
+  }
+
+  /* ---------- share card ---------- */
+  const L = {
+    en: { title: 'Fire activity', week: 'Week of', vs: 'vs usual', usual: 'usual level', trust: 'Trust', sample: 'SAMPLE DATA', none: 'No complete week of data yet',
+      st: { above: 'Above normal', near: 'Near normal', below: 'Below normal', quiet: 'Very few fires', unknown: 'Not enough history' }, lv: { high: 'High', medium: 'Medium', low: 'Low', few: 'Too few fires to judge' }, no: 'No trust score',
+      foot: 'Source: NASA FIRMS (MODIS + VIIRS). Satellites only see fires at the times they pass over.', loc: 'en-GB' },
+    hi: { title: 'आग की गतिविधि', week: 'सप्ताह', vs: 'सामान्य की तुलना में', usual: 'सामान्य स्तर', trust: 'भरोसा', sample: 'नमूना डेटा', none: 'अभी कोई पूरा सप्ताह नहीं',
+      st: { above: 'सामान्य से ज़्यादा', near: 'सामान्य के आसपास', below: 'सामान्य से कम', quiet: 'बहुत कम आग', unknown: 'पर्याप्त इतिहास नहीं' }, lv: { high: 'ऊँचा', medium: 'मध्यम', low: 'कम', few: 'आकलन के लिए बहुत कम आग' }, no: 'भरोसे का स्कोर नहीं',
+      foot: 'स्रोत: NASA FIRMS (MODIS + VIIRS)। उपग्रह केवल अपने गुज़रने के समय की आग देखते हैं।', loc: 'hi-IN' },
+    pa: { title: 'ਅੱਗ ਦੀ ਗਤੀਵਿਧੀ', week: 'ਹਫ਼ਤਾ', vs: 'ਆਮ ਦੇ ਮੁਕਾਬਲੇ', usual: 'ਆਮ ਪੱਧਰ', trust: 'ਭਰੋਸਾ', sample: 'ਨਮੂਨਾ ਡਾਟਾ', none: 'ਅਜੇ ਕੋਈ ਪੂਰਾ ਹਫ਼ਤਾ ਨਹੀਂ',
+      st: { above: 'ਆਮ ਨਾਲੋਂ ਵੱਧ', near: 'ਆਮ ਦੇ ਨੇੜੇ', below: 'ਆਮ ਨਾਲੋਂ ਘੱਟ', quiet: 'ਬਹੁਤ ਘੱਟ ਅੱਗ', unknown: 'ਕਾਫ਼ੀ ਇਤਿਹਾਸ ਨਹੀਂ' }, lv: { high: 'ਉੱਚਾ', medium: 'ਦਰਮਿਆਨਾ', low: 'ਘੱਟ', few: 'ਅੰਦਾਜ਼ੇ ਲਈ ਬਹੁਤ ਘੱਟ ਅੱਗ' }, no: 'ਭਰੋਸੇ ਦਾ ਸਕੋਰ ਨਹੀਂ',
+      foot: 'ਸਰੋਤ: NASA FIRMS (MODIS + VIIRS)। ਉਪਗ੍ਰਹਿ ਸਿਰਫ਼ ਆਪਣੇ ਲੰਘਣ ਦੇ ਸਮੇਂ ਦੀ ਅੱਗ ਦੇਖਦੇ ਹਨ।', loc: 'pa-IN' }
+  };
+  const MONTHS = {
+    hi: ['जन॰', 'फ़र॰', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुल॰', 'अग॰', 'सित॰', 'अक्तू॰', 'नव॰', 'दिस॰'],
+    pa: ['ਜਨਵਰੀ', 'ਫ਼ਰਵਰੀ', 'ਮਾਰਚ', 'ਅਪ੍ਰੈਲ', 'ਮਈ', 'ਜੂਨ', 'ਜੁਲਾਈ', 'ਅਗਸਤ', 'ਸਤੰਬਰ', 'ਅਕਤੂਬਰ', 'ਨਵੰਬਰ', 'ਦਸੰਬਰ']
+  };
+  function localDate(day, lang) {
+    const d = new Date(day * FT.DAY);
+    return MONTHS[lang] ? d.getUTCDate() + ' ' + MONTHS[lang][d.getUTCMonth()] : FT.fmtDate(day);
+  }
+  function wrap(ctx, text, maxW) {
+    const words = text.split(' '), lines = []; let cur = '';
+    words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; });
+    if (cur) lines.push(cur); return lines;
+  }
+  function rrect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  async function renderShare() {
+    const cv = $('#card'), ctx = cv.getContext('2d'), t = L[state.lang], FONT = '"Nunito Sans","Noto Sans Devanagari","Noto Sans Gurmukhi",system-ui,sans-serif';
+    try { if (document.fonts && document.fonts.load) await Promise.all([document.fonts.load('700 40px "Nunito Sans"'), document.fonts.load('700 40px "Bree Serif"'), state.lang === 'hi' ? document.fonts.load('700 40px "Noto Sans Devanagari"', t.title) : state.lang === 'pa' ? document.fonts.load('700 40px "Noto Sans Gurmukhi"', t.title) : Promise.resolve()]); } catch (e) { /* use fallback fonts */ }
+    const ins = FT.insightsFor(state.res, state.year), st = ins.status;
+    ctx.clearRect(0, 0, 1080, 1080);
+    ctx.fillStyle = C.pale; ctx.fillRect(0, 0, 1080, 1080);
+    ctx.save(); ctx.shadowColor = 'rgba(35,71,201,.22)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 12; ctx.fillStyle = '#fff'; rrect(ctx, 60, 50, 960, 980, 48); ctx.fill(); ctx.restore();
+    ctx.save(); rrect(ctx, 60, 50, 960, 980, 48); ctx.clip(); ctx.fillStyle = C.royal; ctx.fillRect(60, 50, 960, 160); ctx.restore();
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = '400 58px "Bree Serif",Georgia,serif'; ctx.fillText('FireTrust', 110, 132);
+    ctx.fillStyle = '#CFE0FF'; ctx.font = '600 30px ' + FONT; ctx.fillText(state.area.slice(0, 34), 110, 180);
+    if (state.isSample) { ctx.font = '800 24px ' + FONT; const w = ctx.measureText(t.sample).width + 40; ctx.fillStyle = C.sun; rrect(ctx, 1020 - 40 - w, 88, w, 48, 24); ctx.fill(); ctx.fillStyle = C.ink; ctx.textAlign = 'center'; ctx.fillText(t.sample, 1020 - 40 - w / 2, 121); ctx.textAlign = 'left'; }
+    ctx.fillStyle = C.ink; ctx.font = '700 44px ' + FONT; ctx.fillText(t.title, 110, 285);
+    if (!st) { ctx.fillStyle = C.muted; ctx.font = '600 40px ' + FONT; wrap(ctx, t.none, 860).forEach((ln, i) => ctx.fillText(ln, 110, 400 + i * 54)); }
+    else {
+      ctx.fillStyle = C.muted; ctx.font = '600 32px ' + FONT; ctx.fillText(t.week + ' ' + localDate(st.start, state.lang) + ' – ' + localDate(st.end, state.lang), 110, 335);
+      const col = { above: '#D43D17', near: C.royal, below: '#14835F', quiet: C.royal, unknown: C.muted }[st.state];
+      ctx.fillStyle = col; ctx.font = '800 84px ' + FONT;
+      const lines = wrap(ctx, t.st[st.state], 860); lines.slice(0, 2).forEach((ln, i) => ctx.fillText(ln, 110, 440 + i * 94));
+      const yb = 440 + (Math.min(2, lines.length) - 1) * 94;
+      if ((st.state === 'above' || st.state === 'below') && st.pct != null) { ctx.fillStyle = C.ink; ctx.font = '700 40px ' + FONT; ctx.fillText((st.pct > 0 ? '+' : '') + st.pct + '% ' + t.vs, 110, yb + 66); }
+      // last 12 weeks mini bars
+      const bars = st.last12 || [], baseY = 830, topY = 640;
+      if (bars.length) {
+        const mx = Math.max.apply(null, bars.map(b => Math.max(b.h, b.mu || 0)).concat([1])), bw = 56, gp = 14, x0 = 110 + (860 - (bars.length * bw + (bars.length - 1) * gp)) / 2;
+        bars.forEach((b, i) => { const x = x0 + i * (bw + gp), hh = Math.max(3, (b.h / mx) * (baseY - topY)); ctx.fillStyle = i === bars.length - 1 ? C.fire : '#9CC2FF'; rrect(ctx, x, baseY - hh, bw, hh, 8); ctx.fill(); if (b.mu != null) { const my = baseY - (b.mu / mx) * (baseY - topY); ctx.fillStyle = C.ink; ctx.fillRect(x - 3, my - 2, bw + 6, 4); } });
+        ctx.fillStyle = C.ink; ctx.fillRect(110, baseY + 22, 40, 5); ctx.fillStyle = C.muted; ctx.font = '600 26px ' + FONT; ctx.fillText(t.usual, 162, baseY + 33);
+      }
+      // trust chip
+      const lv = st.level, lab = lv ? t.trust + ': ' + t.lv[lv] : t.no, bg = { high: '#14835F', medium: C.sun, low: '#D43D17', few: '#9AA6C4' }[lv] || '#9AA6C4', fg = lv === 'medium' ? C.ink : '#fff';
+      ctx.font = '700 32px ' + FONT; const cw = Math.min(860, ctx.measureText(lab).width + 56);
+      ctx.fillStyle = bg; rrect(ctx, 110, 890, cw, 62, 31); ctx.fill(); ctx.fillStyle = fg; ctx.fillText(lab, 138, 932);
+    }
+    ctx.fillStyle = C.muted; ctx.font = '600 23px ' + FONT; wrap(ctx, t.foot, 860).slice(0, 2).forEach((ln, i) => ctx.fillText(ln, 110, 985 + i * 30));
+  }
+  function cardBlob() { return new Promise(res => $('#card').toBlob(res, 'image/png')); }
+
+  /* ---------- events ---------- */
+  function wire() {
+    $('#rings').addEventListener('click', e => { const d = e.target.dataset; if (d && d.y) { const y = +d.y; ringInfo(y, +d.b); if (y !== state.year) { setYear(y); ringInfo(y, +d.b); } } });
+    $('#cal').addEventListener('click', e => { const d = e.target.dataset; if (d && d.d !== undefined) dayInfo(+d.d); });
+    $('#yearSel').addEventListener('change', e => setYear(+e.target.value));
+    $('#winSel').addEventListener('change', e => { state.win = e.target.value; renderShift(); });
+    $('#go').addEventListener('click', analyseFiles);
+    $('#useSample').addEventListener('click', () => { loadSample(); $('#loadMsg').className = 'msg'; $('#loadMsg').textContent = 'Back to the sample data.'; });
+    $('#presetPH').addEventListener('click', () => { $('#bS').value = 27.6; $('#bN').value = 32.6; $('#bW').value = 73.8; $('#bE').value = 77.6; });
+    const dl = (name, text) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
+    $('#dlM').addEventListener('click', () => { loadSampleIfNeeded(); dl('sample_MODIS_firms_format.csv', FT.toFirmsCsv(state.sample.M, 'M')); });
+    $('#dlV').addEventListener('click', () => { loadSampleIfNeeded(); dl('sample_VIIRS_firms_format.csv', FT.toFirmsCsv(state.sample.V, 'V')); });
+    document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { state.lang = b.dataset.lang; document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); renderShare(); }));
+    $('#dlCard').addEventListener('click', async () => { const blob = await cardBlob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'firetrust-' + state.lang + '.png'; document.body.appendChild(a); a.click(); a.remove(); });
+    $('#shCard').addEventListener('click', async () => {
+      const m = $('#shareMsg'); m.textContent = '';
+      try {
+        const blob = await cardBlob(), file = new File([blob], 'firetrust.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'FireTrust' });
+        else m.textContent = 'Sharing is not supported in this browser. Use Download picture, then send the image.';
+      } catch (e) { if (e && e.name !== 'AbortError') m.textContent = 'Could not open sharing. Use Download picture instead.'; }
+    });
+  }
+  function loadSampleIfNeeded() { if (!state.sample) state.sample = FT.generateSample(); }
+
+  wire();
+  loadSample();
+})();
+
+</script>
+</body>
+</html>
